@@ -308,7 +308,7 @@ func main() {
 			webhookPrefix = "[Multica]"
 		}
 		webhookClient := webhook.NewDingTalkClient(webhookURL, webhookPrefix)
-		registerWebhookListeners(bus, webhookClient)
+		registerWebhookListeners(bus, queries, webhookClient)
 		slog.Info("webhook: DingTalk outbound enabled", "url_len", len(webhookURL))
 	}
 
