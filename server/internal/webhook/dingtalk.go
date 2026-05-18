@@ -1,7 +1,12 @@
 package webhook
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"time"
 )
 
@@ -40,4 +45,65 @@ func FormatMarkdown(prefix, notifType, title, body string) (mdTitle, mdText stri
 		mdText = fmt.Sprintf("%s %s **%s**\n\n---\n⏰ %s", prefix, emoji, title, timestamp)
 	}
 	return mdTitle, mdText
+}
+
+// DingTalkClient sends markdown messages to a DingTalk webhook endpoint.
+type DingTalkClient struct {
+	url    string
+	prefix string
+	client *http.Client
+}
+
+// NewDingTalkClient creates a client with a 5-second timeout.
+func NewDingTalkClient(url, prefix string) *DingTalkClient {
+	return &DingTalkClient{
+		url:    url,
+		prefix: prefix,
+		client: &http.Client{
+			Timeout: 5 * time.Second,
+			Transport: &http.Transport{
+				ResponseHeaderTimeout: 2 * time.Second,
+			},
+		},
+	}
+}
+
+// Prefix returns the configured message prefix.
+func (d *DingTalkClient) Prefix() string {
+	return d.prefix
+}
+
+// SendMarkdown posts a markdown message to the DingTalk webhook.
+func (d *DingTalkClient) SendMarkdown(ctx context.Context, title, text string) error {
+	payload := map[string]any{
+		"msgtype": "markdown",
+		"markdown": map[string]string{
+			"title": title,
+			"text":  text,
+		},
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("webhook marshal: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, d.url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("webhook request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := d.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("webhook send: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		return fmt.Errorf("webhook HTTP %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
 }
