@@ -98,7 +98,7 @@ func TestSendMarkdown(t *testing.T) {
 
 func TestSendMarkdownTimeout(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(6 * time.Second)
+		time.Sleep(200 * time.Millisecond)
 		w.WriteHeader(200)
 	}))
 	defer srv.Close()

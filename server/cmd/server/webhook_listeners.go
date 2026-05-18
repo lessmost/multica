@@ -22,7 +22,10 @@ func registerWebhookListeners(bus *events.Bus, client *webhook.DingTalkClient) {
 
 		notifType, _ := item["type"].(string)
 		title, _ := item["title"].(string)
-		body, _ := item["body"].(string)
+		var body string
+		if bp, ok := item["body"].(*string); ok && bp != nil {
+			body = *bp
+		}
 
 		if title == "" {
 			return
