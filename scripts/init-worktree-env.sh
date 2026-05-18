@@ -44,6 +44,8 @@ FRONTEND_PORT=${frontend_port}
 FRONTEND_ORIGIN=${frontend_origin}
 NEXT_PUBLIC_API_URL=http://localhost:${backend_port}
 NEXT_PUBLIC_WS_URL=ws://localhost:${backend_port}/ws
+
+LOCAL_UPLOAD_BASE_URL=http://localhost:${backend_port}
 EOF
 
 echo "Generated $ENV_FILE for worktree '$worktree_name'"

@@ -4,8 +4,14 @@ import { resolve } from "path";
 import { resolveRemoteApiUrl } from "./config/runtime-urls";
 import { createMDX } from "fumadocs-mdx/next";
 
-// Load root .env so REMOTE_API_URL is available to next.config.ts
-config({ path: resolve(__dirname, "../../.env") });
+// Load the active env file so REMOTE_API_URL / NEXT_PUBLIC_API_URL are
+// available to next.config.ts. Prefer .env.worktree (worktree checkouts) then
+// .env (main checkout). Variables already in the environment (e.g. exported by
+// Make) take precedence because dotenv never overwrites existing values.
+const envCandidates = [".env.worktree", ".env"];
+for (const name of envCandidates) {
+  config({ path: resolve(__dirname, "../..", name) });
+}
 
 const remoteApiUrl = resolveRemoteApiUrl(process.env);
 const docsUrl = process.env.DOCS_URL || "http://localhost:4000";
