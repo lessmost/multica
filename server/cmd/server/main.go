@@ -22,6 +22,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/realtime"
 	"github.com/multica-ai/multica/server/internal/scheduler"
 	"github.com/multica-ai/multica/server/internal/service"
+	"github.com/multica-ai/multica/server/internal/webhook"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/featureflag"
 	"github.com/redis/go-redis/v9"
@@ -300,6 +301,16 @@ func main() {
 	registerSubscriberListeners(bus, queries)
 	registerActivityListeners(bus, queries)
 	registerNotificationListeners(bus, queries)
+
+	if webhookURL := os.Getenv("WEBHOOK_URL"); webhookURL != "" {
+		webhookPrefix := os.Getenv("WEBHOOK_MSG_PREFIX")
+		if webhookPrefix == "" {
+			webhookPrefix = "[Multica]"
+		}
+		webhookClient := webhook.NewDingTalkClient(webhookURL, webhookPrefix)
+		registerWebhookListeners(bus, webhookClient)
+		slog.Info("webhook: DingTalk outbound enabled", "url_len", len(webhookURL))
+	}
 
 	metricsConfig := obsmetrics.ConfigFromEnv()
 	var metricsServer *http.Server
