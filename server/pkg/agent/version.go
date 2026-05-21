@@ -65,12 +65,13 @@ var (
 	ErrCLIVersionTooOld  = errors.New("multica CLI version is below required minimum")
 )
 
-// devDescribeRe matches the `git describe --tags --always --dirty` output for
-// a build past the latest tag, e.g. `v0.2.15-235-gdaf0e935` (optionally with a
-// trailing `-dirty`). Daemons built from source (Makefile `make build` / `make
-// daemon`) report this shape; tagged releases are bare semver. Treating dev-
-// described daemons as OK keeps `make daemon` unblocked without weakening the
-// gate for staging or production users running stale stable releases.
+// devDescribeRe matches local development build markers. Daemons built from
+// source can report either the bare `dev` marker or `git describe --tags
+// --always --dirty` output for a build past the latest tag, e.g.
+// `v0.2.15-235-gdaf0e935` (optionally with a trailing `-dirty`). Tagged
+// releases are bare semver. Treating development daemons as OK keeps local
+// builds unblocked without weakening the gate for staging or production users
+// running stale stable releases.
 var devDescribeRe = regexp.MustCompile(`^v?\d+\.\d+\.\d+-\d+-g[0-9a-fA-F]+`)
 
 // CheckMinCLIVersion returns nil when `detected` parses as ≥ minimum. Returns
@@ -78,15 +79,16 @@ var devDescribeRe = regexp.MustCompile(`^v?\d+\.\d+\.\d+-\d+-g[0-9a-fA-F]+`)
 // when parsable but below the minimum. The caller can check for these
 // sentinel errors with errors.Is to drive the response shape.
 //
-// Dev-built daemons (git-describe shape) always pass — the version string
-// itself is the shared signal, so the modal pre-check and this server gate
-// agree by construction without needing to compare separate env flags.
+// Dev-built daemons (either `dev` or git-describe shape) always pass — the
+// version string itself is the shared signal, so the modal pre-check and this
+// server gate agree by construction without needing to compare separate env
+// flags.
 func CheckMinCLIVersion(detected string) error {
 	d := strings.TrimSpace(detected)
 	if d == "" {
 		return ErrCLIVersionMissing
 	}
-	if devDescribeRe.MatchString(d) {
+	if d == "dev" || devDescribeRe.MatchString(d) {
 		return nil
 	}
 	parsed, err := parseSemver(d)

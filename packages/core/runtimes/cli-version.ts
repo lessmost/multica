@@ -24,13 +24,17 @@ export interface CliVersionCheck {
 
 const SEMVER_RE = /v?(\d+)\.(\d+)\.(\d+)/;
 
-// Matches the `git describe --tags --always --dirty` output for a build past
-// the latest tag, e.g. `v0.2.15-235-gdaf0e935` or `v0.2.15-235-gdaf0e935-dirty`.
-// Daemons built from source (Makefile `make build` / `make daemon`) report this
-// shape; tagged releases are bare semver. Treating dev-described daemons as OK
-// is what keeps `pnpm dev:desktop` + `make daemon` unblocked without weakening
-// the gate for staging or production users running stale stable releases.
+// Matches local development build markers. Daemons built from source can report
+// either the bare `dev` marker or `git describe --tags --always --dirty` output
+// for a build past the latest tag, e.g. `v0.2.15-235-gdaf0e935` or
+// `v0.2.15-235-gdaf0e935-dirty`. Tagged releases are bare semver. Treating
+// development daemons as OK keeps local builds unblocked without weakening the
+// gate for staging or production users running stale stable releases.
 const DEV_DESCRIBE_RE = /^v?\d+\.\d+\.\d+-\d+-g[0-9a-fA-F]+/;
+
+function isDevelopmentCliVersion(version: string): boolean {
+  return version === "dev" || DEV_DESCRIBE_RE.test(version);
+}
 
 function parseSemver(raw: string): [number, number, number] | null {
   const m = SEMVER_RE.exec(raw.trim());
@@ -48,12 +52,13 @@ function lessThan(a: [number, number, number], b: [number, number, number]) {
  * Check a daemon-reported CLI version string against the minimum. Returns
  * `"missing"` for empty/unparsable input (fail closed — same policy as the
  * server) and `"too_old"` for a parsable version below the threshold.
- * Dev-built daemons (git-describe shape) are always OK — the version string
- * itself is the shared signal, so frontend and server agree by construction.
+ * Dev-built daemons (either `dev` or git-describe shape) are always OK — the
+ * version string itself is the shared signal, so frontend and server agree by
+ * construction.
  */
 export function checkQuickCreateCliVersion(detected: string | undefined | null): CliVersionCheck {
   const current = (detected ?? "").trim();
-  if (DEV_DESCRIBE_RE.test(current)) {
+  if (isDevelopmentCliVersion(current)) {
     return { state: "ok", current, min: MIN_QUICK_CREATE_CLI_VERSION };
   }
   const parsed = current ? parseSemver(current) : null;
@@ -65,6 +70,18 @@ export function checkQuickCreateCliVersion(detected: string | undefined | null):
     return { state: "too_old", current, min: MIN_QUICK_CREATE_CLI_VERSION };
   }
   return { state: "ok", current, min: MIN_QUICK_CREATE_CLI_VERSION };
+}
+
+/** Returns true when a release CLI version is older than the latest release. */
+export function isCliVersionOutdated(latest: string, current: string): boolean {
+  const latestParsed = parseSemver(latest.trim());
+  const currentTrimmed = current.trim();
+  if (!latestParsed || !currentTrimmed || isDevelopmentCliVersion(currentTrimmed)) {
+    return false;
+  }
+  const currentParsed = parseSemver(currentTrimmed);
+  if (!currentParsed) return false;
+  return lessThan(currentParsed, latestParsed);
 }
 
 /** Pull `cli_version` off a runtime row's loosely-typed metadata bag. */

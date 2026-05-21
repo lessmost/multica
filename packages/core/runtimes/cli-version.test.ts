@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   checkQuickCreateCliVersion,
   handoffSupported,
+  isCliVersionOutdated,
   MIN_HANDOFF_CLI_VERSION,
 } from "./cli-version";
 
@@ -26,6 +27,20 @@ describe("checkQuickCreateCliVersion", () => {
     expect(checkQuickCreateCliVersion("v0.2.15-235-gdaf0e935").state).toBe("ok");
     expect(checkQuickCreateCliVersion("v0.2.15-235-gdaf0e935-dirty").state).toBe("ok");
     expect(checkQuickCreateCliVersion("0.1.0-1-gabc1234").state).toBe("ok");
+  });
+
+  it("treats the local dev build marker as ok", () => {
+    expect(checkQuickCreateCliVersion("dev").state).toBe("ok");
+  });
+
+  it("does not mark development CLI builds as outdated", () => {
+    expect(isCliVersionOutdated("v0.3.0", "dev")).toBe(false);
+    expect(isCliVersionOutdated("v0.3.0", "v0.2.15-235-gdaf0e935")).toBe(false);
+  });
+
+  it("marks older release CLI builds as outdated", () => {
+    expect(isCliVersionOutdated("v0.3.0", "v0.2.20")).toBe(true);
+    expect(isCliVersionOutdated("v0.3.0", "v0.3.0")).toBe(false);
   });
 });
 
